@@ -6,12 +6,14 @@
 //   POST /api/vase/arrange    { stems, note, title? } -> { bouquet }  for a model or an agent (Bearer VASE_TOKEN if set)
 //   PUT  /api/vase/mine       { stems }               -> { mine }     the page: the vase she arranged herself
 //   PUT  /api/vase/style      VaseStyle               -> { style }    the page: how she shaped the vase
+//   POST /mcp                 MCP over Streamable HTTP                 for remote MCP clients (Bearer VASE_TOKEN if set)
 //
 // PORT (7531), DATA_DIR (./data) and VASE_TOKEN come from the environment.
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import path from 'node:path';
 import { FLOWERS } from '../src/vase/flowerCatalog.ts';
+import { handleMcp } from './mcpHttp.ts';
 import { ARRANGE_HELP, VaseError, arrangeBouquet, bouquetOn, dayKey, herVase, recentBouquets, saveHerVase, saveVaseStyle, vasePrompt, vaseStyle } from './store.ts';
 
 const PORT = Number(process.env.PORT ?? 7531);
@@ -42,6 +44,7 @@ function serveStatic(url: URL, res: ServerResponse) {
 async function route(req: IncomingMessage, res: ServerResponse) {
   const url = new URL(req.url ?? '/', 'http://localhost');
   const p = url.pathname;
+  if (p === '/mcp') return handleMcp(req, res);
   if (!p.startsWith('/api/')) return serveStatic(url, res);
   if (req.method === 'GET' && p === '/api/vase') return send(res, 200, { today: bouquetOn(dayKey()), history: recentBouquets(), mine: herVase(), style: vaseStyle() });
   if (req.method === 'GET' && p === '/api/vase/catalog') return send(res, 200, { flowers: FLOWERS, prompt: vasePrompt(), arrange: ARRANGE_HELP });
